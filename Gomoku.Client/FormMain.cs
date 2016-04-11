@@ -85,39 +85,6 @@ namespace Gomoku.Client
             }
         }
 
-        private void NewMethod(Graphics graphics, Model model, bool undo = false, int size = 26)
-        {
-            int _XPoint = (this.m_Margin) * model.X - this.m_Margin + (this.m_Margin - size) / 2;
-            int _YPoint = (this.m_Margin) * model.Y - this.m_Margin + (this.m_Margin - size) / 2;
-
-            Bitmap _Bitmap = new Bitmap(size, size);
-            Graphics _Graphics = Graphics.FromImage(_Bitmap);
-
-            if (!undo)
-            {
-                var _Turn1 = new System.Drawing.SolidBrush(Color.FromArgb(0, 0, 0));
-                var _Turn2 = new System.Drawing.SolidBrush(Color.FromArgb(255, 255, 255));
-
-                if (model.IsBlack)
-                {
-                    _Turn1 = new System.Drawing.SolidBrush(Color.FromArgb(255, 255, 255));
-                    _Turn2 = new System.Drawing.SolidBrush(Color.FromArgb(0, 0, 0));
-                }
-
-                _Graphics.FillEllipse(_Turn1, 0, 0, size, size);
-                _Graphics.DrawString(model.Index.ToString("000"), new Font("Arial", 10), _Turn2, 1, 6);
-            }
-            else
-            {
-                var _Pen = new Pen(lineColor, 1);
-                _Graphics.FillEllipse(new System.Drawing.SolidBrush(this.pictureBoxBoard.BackColor), 0, 0, size, size);
-                _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size);
-                _Graphics.DrawLine(_Pen, 0, size / 2, size, size / 2);
-            }
-
-            graphics.DrawImage(_Bitmap, _XPoint, _YPoint);
-        }
-
         private void FormMain_MouseMove(object sender, MouseEventArgs e)
         {
             base.Cursor = Cursors.Default;
@@ -141,8 +108,8 @@ namespace Gomoku.Client
             _Model.IsBlack = this.m_Session.Turn;
 
             this.m_Session.PlayTurn(_Model);
-
             this.NewMethod(pictureBoxBoard.CreateGraphics(), _Model);
+            this.MakeMove(_Model, _Model.IsBlack);
         }
 
         private void buttonSave_Click(object sender, EventArgs e)
@@ -193,17 +160,99 @@ namespace Gomoku.Client
 
         private void buttonUnDo_Click(object sender, EventArgs e)
         {
-            // this.NewRePaintGoBoard();
             this.NewMethod(this.pictureBoxBoard.CreateGraphics(), this.m_Session.List.LastOrDefault(), true);
             this.m_Session.PlayUnDo();
-            //foreach (var item in this.m_Session.List)
-            //{
-            //    this.NewMethod(this.pictureBoxBoard.CreateGraphics(), item);
-            //}
+        }
+
+        private void MakeMove(Model model, bool color)
+        {
+            if (this.HaveVictoryAt(model, color))
+            {
+                MessageBox.Show(string.Format("{0} 승", color ? "백" : "흑"));
+            }
+        }
+
+        public bool HaveVictoryAt(Model model, bool color)
+        {
+            return model.IsBlack == color && this.CalcScore(model, color) >= 5 - 1;
+        }
+
+        private int CalcScore(Model model, bool color)
+        {
+            int[] counts = new int[] {
+                this.CountStonesInDirection(model, -1, 0, color) + this.CountStonesInDirection(model, 1, 0, color),
+                this.CountStonesInDirection(model, 0, -1, color) + this.CountStonesInDirection(model, 0, 1, color),
+                this.CountStonesInDirection(model, -1, -1, color) + this.CountStonesInDirection(model, 1, 1, color),
+                this.CountStonesInDirection(model, -1, 1, color) + this.CountStonesInDirection(model, 1, -1, color)
+            };
+
+            int result = 0;
+            for (int i = 0; i < counts.Length; i++)
+            {
+                result = Math.Max(result, counts[i]);
+            }
+
+            return result;
+        }
+
+        int CountStonesInDirection(Model model, int x, int y, bool color)
+        {
+            int result = 0;
+            var _Start = new Point(model.X, model.Y);
+            for (int i = 1; i < 5; i++)
+            {
+                Point current = _Start + new Size(i * x, i * y);
+                var _Model = this.m_Session.List.Where(r => r.X == current.X && r.Y == current.Y).FirstOrDefault();
+                if (_Model == null)
+                {
+                    break;
+                }
+
+                if (_Model.IsBlack != color)
+                {
+                    break;
+                }
+
+                result++;
+            }
+
+            return result;
+        }
+
+        private void NewMethod(Graphics graphics, Model model, bool undo = false, int size = 26)
+        {
+            int _XPoint = (this.m_Margin) * model.X - this.m_Margin + (this.m_Margin - size) / 2;
+            int _YPoint = (this.m_Margin) * model.Y - this.m_Margin + (this.m_Margin - size) / 2;
+
+            Bitmap _Bitmap = new Bitmap(size, size);
+            Graphics _Graphics = Graphics.FromImage(_Bitmap);
+
+            if (!undo)
+            {
+                var _Turn1 = Brushes.Black;
+                var _Turn2 = Brushes.White;
+
+                if (model.IsBlack)
+                {
+                    _Turn1 = Brushes.White;
+                    _Turn2 = Brushes.Black;
+                }
+
+                _Graphics.FillEllipse(_Turn1, 0, 0, size, size);
+                _Graphics.DrawString(model.Index.ToString("000"), new Font("Arial", 10), _Turn2, 1, 6);
+            }
+            else
+            {
+                var _Pen = new Pen(lineColor, 1);
+                _Graphics.FillEllipse(new System.Drawing.SolidBrush(this.pictureBoxBoard.BackColor), 0, 0, size, size);
+                _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size);
+                _Graphics.DrawLine(_Pen, 0, size / 2, size, size / 2);
+            }
+
+            graphics.DrawImage(_Bitmap, _XPoint, _YPoint);
         }
     }
 
-    [Serializable()]
     public class Session
     {
         private System.Diagnostics.Stopwatch m_Stopwatch = new System.Diagnostics.Stopwatch();
@@ -297,5 +346,10 @@ namespace Gomoku.Client
 
         [XmlAttribute]
         public bool IsBlack { get; set; }
+
+        public override string ToString()
+        {
+            return string.Format("X:{0}, Y:{1}, color:{2}", this.X, this.Y, this.IsBlack);
+        }
     }
 }
