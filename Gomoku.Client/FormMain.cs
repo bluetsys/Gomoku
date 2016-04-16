@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
-using System.Xml.Serialization;
-using System.IO;
+
+using Gomoku.Client.Models;
 
 namespace Gomoku.Client
 {
@@ -37,7 +34,6 @@ namespace Gomoku.Client
             using (Graphics _Graphics = Graphics.FromImage(_Bitmap))
             {
                 Pen _Pen = new Pen(lineColor, 3);
-                Console.WriteLine("{0}, {1}, {2}, {3}", this.m_Margin / 2, this.m_Margin / 2, this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2);
                 _Graphics.DrawLine(_Pen, this.m_Margin / 2, this.m_Margin / 2, this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2);
                 _Graphics.DrawLine(_Pen, this.m_Margin / 2, this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2, this.m_Margin / 2);
                 _Graphics.DrawLine(_Pen, this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2, this.m_Margin * this.m_LineCount - this.m_Margin / 2);
@@ -50,23 +46,34 @@ namespace Gomoku.Client
                     _Graphics.DrawLine(_Pen, i, this.m_Margin / 2, i, this.m_Margin * m_LineCount - this.m_Margin / 2);
                 }
 
-                int _n = 10;//점크기
-                            // 9군데 점
-                int _p1 = 4 * this.m_Margin - 20;
-                int _p2 = (this.m_LineCount + 1) * this.m_Margin / 2 - 20;
-                int _p3 = (this.m_LineCount - 3) * this.m_Margin - 20;
-                // this.pictureBoxBoard.BackColor = Color.Yellow;
+                int _n = this.m_Margin / 3;//점크기
+                                           // 9군데 점
+                int _p1 = 4 * this.m_Margin - (this.m_Margin * 2) / 3;
+                int _p2 = (this.m_LineCount + 1) * this.m_Margin / 2 - (this.m_Margin * 2) / 3;
+                int _p3 = (this.m_LineCount - 3) * this.m_Margin - (this.m_Margin * 2) / 3;
+                this.pictureBoxBoard.BackColor = Color.Yellow;
 
-                // 9군데 점찍기
-                _Graphics.FillEllipse(Brushes.Black, _p1, _p1, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p2, _p1, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p3, _p1, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p1, _p2, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p2, _p2, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p3, _p2, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p1, _p3, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p2, _p3, _n, _n);
-                _Graphics.FillEllipse(Brushes.Black, _p3, _p3, _n, _n);
+                if (this.m_LineCount == 19)
+                {
+                    Point[] _Point = new Point[] {
+                            new Point(3,3),
+                            new Point(3,9),
+                            new Point(3,15),
+                            new Point(9,3),
+                            new Point(9,9),
+                            new Point(9,15),
+                            new Point(15,3),
+                            new Point(15,9),
+                            new Point(15,15),
+                    };
+
+                    foreach (var item in _Point)
+                    {
+                        int _XPoint = (this.m_Margin) * item.X + 10;
+                        int _YPoint = (this.m_Margin) * item.Y + 10;
+                        _Graphics.FillEllipse(Brushes.Black, _XPoint, _YPoint, 10, 10);
+                    }
+                }
 
                 this.pictureBoxBoard.Image = _Bitmap;
             }
@@ -76,8 +83,8 @@ namespace Gomoku.Client
         {
             base.Cursor = Cursors.Default;
 
-            int _X = (e.Location.X / this.m_Margin) + 1;
-            int _Y = (e.Location.Y / this.m_Margin) + 1;
+            int _X = (e.Location.X / this.m_Margin);
+            int _Y = (e.Location.Y / this.m_Margin);
 
             if (this.m_Session.List.Where(r => r.X == _X && r.Y == _Y).Count() == 0)
             {
@@ -92,24 +99,38 @@ namespace Gomoku.Client
 
         private void pictureBoxBoard_MouseUp(object sender, MouseEventArgs e)
         {
-            int _X = (e.Location.X / this.m_Margin) + 1;
-            int _Y = (e.Location.Y / this.m_Margin) + 1;
+            int _X = (e.Location.X / this.m_Margin);
+            int _Y = (e.Location.Y / this.m_Margin);
 
             if (this.m_Session.List.Where(r => r.X == _X && r.Y == _Y).Count() != 0)
             {
                 return;
             }
 
-            Model _Model = new Model();
-
-            _Model.X = _X;
-            _Model.Y = _Y;
-
-            _Model.IsBlack = this.m_Session.Turn;
+            PointModel _Model = new PointModel()
+            {
+                X = _X,
+                Y = _Y,
+                IsBlack = this.m_Session.Turn,
+            };
 
             this.m_Session.PlayTurn(_Model);
             this.NewMethod(pictureBoxBoard.CreateGraphics(), _Model);
             this.MakeMove(_Model, _Model.IsBlack);
+
+            bool opponentColor = this.m_Session.GetOpponentColor(_Model.IsBlack);
+            Point opponentLocation = this.m_Session.SelectBestCell(opponentColor);
+
+            PointModel _Model1 = new PointModel()
+            {
+                X = opponentLocation.X,
+                Y = opponentLocation.Y,
+                IsBlack = this.m_Session.Turn,
+            };
+
+            this.m_Session.PlayTurn(_Model1);
+            this.NewMethod(pictureBoxBoard.CreateGraphics(), _Model1);
+            this.MakeMove(_Model1, _Model1.IsBlack);
         }
 
         private void buttonSave_Click(object sender, EventArgs e)
@@ -164,65 +185,27 @@ namespace Gomoku.Client
             this.m_Session.PlayUnDo();
         }
 
-        private void MakeMove(Model model, bool color)
+        private void MakeMove(PointModel model, bool color)
         {
-            if (this.HaveVictoryAt(model, color))
+            if (this.m_Session.HaveVictoryAt(model, color))
             {
                 MessageBox.Show(string.Format("{0} 승", color ? "백" : "흑"));
             }
         }
 
-        public bool HaveVictoryAt(Model model, bool color)
+        private void NewMethod(Graphics graphics, PointModel model, bool undo = false, int size = 26)
         {
-            return model.IsBlack == color && this.CalcScore(model, color) >= 5 - 1;
-        }
-
-        private int CalcScore(Model model, bool color)
-        {
-            int[] counts = new int[] {
-                this.CountStonesInDirection(model, -1, 0, color) + this.CountStonesInDirection(model, 1, 0, color),
-                this.CountStonesInDirection(model, 0, -1, color) + this.CountStonesInDirection(model, 0, 1, color),
-                this.CountStonesInDirection(model, -1, -1, color) + this.CountStonesInDirection(model, 1, 1, color),
-                this.CountStonesInDirection(model, -1, 1, color) + this.CountStonesInDirection(model, 1, -1, color)
-            };
-
-            int result = 0;
-            for (int i = 0; i < counts.Length; i++)
+            if (model == null)
             {
-                result = Math.Max(result, counts[i]);
+                return;
             }
 
-            return result;
-        }
-
-        int CountStonesInDirection(Model model, int x, int y, bool color)
-        {
-            int result = 0;
-            var _Start = new Point(model.X, model.Y);
-            for (int i = 1; i < 5; i++)
+            if (size > this.m_Margin)
             {
-                Point current = _Start + new Size(i * x, i * y);
-                var _Model = this.m_Session.List.Where(r => r.X == current.X && r.Y == current.Y).FirstOrDefault();
-                if (_Model == null)
-                {
-                    break;
-                }
-
-                if (_Model.IsBlack != color)
-                {
-                    break;
-                }
-
-                result++;
+                size = this.m_Margin;
             }
-
-            return result;
-        }
-
-        private void NewMethod(Graphics graphics, Model model, bool undo = false, int size = 26)
-        {
-            int _XPoint = (this.m_Margin) * model.X - this.m_Margin + (this.m_Margin - size) / 2;
-            int _YPoint = (this.m_Margin) * model.Y - this.m_Margin + (this.m_Margin - size) / 2;
+            int _XPoint = (this.m_Margin) * model.X + (this.m_Margin - size) / 2;
+            int _YPoint = (this.m_Margin) * model.Y + (this.m_Margin - size) / 2;
 
             Bitmap _Bitmap = new Bitmap(size, size);
             Graphics _Graphics = Graphics.FromImage(_Bitmap);
@@ -239,117 +222,82 @@ namespace Gomoku.Client
                 }
 
                 _Graphics.FillEllipse(_Turn1, 0, 0, size, size);
-                _Graphics.DrawString(model.Index.ToString("000"), new Font("Arial", 10), _Turn2, 1, 6);
+                _Graphics.DrawString(model.Index.ToString("000"), new Font("Arial", m_Margin / 3), _Turn2, 1, 6);
             }
             else
             {
-                var _Pen = new Pen(lineColor, 1);
+                var _Pen = new Pen(lineColor, 3);
                 _Graphics.FillEllipse(new System.Drawing.SolidBrush(this.pictureBoxBoard.BackColor), 0, 0, size, size);
-                _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size);
-                _Graphics.DrawLine(_Pen, 0, size / 2, size, size / 2);
+
+                if (model.X == 0 && model.Y == 0)
+                {
+                    _Graphics.DrawLine(_Pen, size / 2, size / 2, size, size / 2); // 세로선
+                    _Graphics.DrawLine(_Pen, size / 2, size / 2, size / 2, size);
+                }
+                else if (model.X == 0 && model.Y == this.m_LineCount - 1)
+                {
+                    _Graphics.DrawLine(_Pen, size / 2, size / 2, size, size / 2); // 세로선
+                    _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size / 2);
+                }
+                else if (model.X == this.m_LineCount - 1 && model.Y == 0)
+                {
+                    _Graphics.DrawLine(_Pen, 0, size / 2, size / 2, size / 2); // 세로선
+                    _Graphics.DrawLine(_Pen, size / 2, size / 2, size / 2, size);
+                }
+                else if (model.X == this.m_LineCount - 1 && model.Y == this.m_LineCount - 1)
+                {
+                    _Graphics.DrawLine(_Pen, size / 2, size / 2, size / 2, 0); // 세로선
+                    _Graphics.DrawLine(_Pen, 0, size / 2, size / 2, size / 2);
+                }
+                else if (model.X == 0 || model.X == this.m_LineCount - 1)
+                {
+                    _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size); // 세로선
+                    if (model.X == 0)
+                    {
+                        _Graphics.DrawLine(new Pen(lineColor, 1), size / 2, size / 2, size, size / 2);
+                    }
+                    else
+                    {
+                        _Graphics.DrawLine(new Pen(lineColor, 1), 0, size / 2, size / 2, size / 2);
+                    }
+                }
+                else if (model.Y == 0 || model.Y == this.m_LineCount - 1)
+                {
+                    _Graphics.DrawLine(_Pen, 0, size / 2, size, size / 2); // 가로선
+                    if (model.Y == 0)
+                    {
+                        _Graphics.DrawLine(new Pen(lineColor, 1), size / 2, size / 2, size / 2, size);
+                    }
+                    else
+                    {
+                        _Graphics.DrawLine(new Pen(lineColor, 1), size / 2, 0, size / 2, size / 2);
+                    }
+                }
+                else
+                {
+                    _Pen = new Pen(lineColor, 1);
+                    _Graphics.DrawLine(_Pen, size / 2, 0, size / 2, size);
+                    _Graphics.DrawLine(_Pen, 0, size / 2, size, size / 2);
+
+                    if ((model.X == 3 && model.Y == 3)
+                        || (model.X == 3 && model.Y == 9)
+                        || (model.X == 3 && model.Y == 15)
+                        || (model.X == 9 && model.Y == 3)
+                        || (model.X == 9 && model.Y == 9)
+                        || (model.X == 9 && model.Y == 15)
+                        || (model.X == 15 && model.Y == 3)
+                        || (model.X == 15 && model.Y == 9)
+                        || (model.X == 15 && model.Y == 15)
+                        )
+                    {
+                        int _n = this.m_Margin / 3;//점크기
+                        _Graphics.FillEllipse(Brushes.Black, (size - _n) / 2, (size - _n) / 2, _n, _n);
+                    }
+                }
+
             }
 
             graphics.DrawImage(_Bitmap, _XPoint, _YPoint);
-        }
-    }
-
-    public class Session
-    {
-        private System.Diagnostics.Stopwatch m_Stopwatch = new System.Diagnostics.Stopwatch();
-        private List<Model> m_List = null;
-
-        public Session()
-        {
-            this.m_List = new List<Model>();
-        }
-
-        public void Start()
-        {
-            this.m_List.Clear();
-            this.m_Stopwatch.Start();
-        }
-
-        public void Save(string filename)
-        {
-            XmlSerializer _XmlSerializer = new XmlSerializer(typeof(List<Model>));
-            TextWriter _TextWriter = new StreamWriter(filename);
-            _XmlSerializer.Serialize(_TextWriter, this.m_List);
-            _TextWriter.Close();
-        }
-
-        public void Load(string filename)
-        {
-            FileStream _FileStream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-            XmlSerializer _XmlSerializer = new XmlSerializer(typeof(List<Model>));
-            List<Model> _Model = (List<Model>)_XmlSerializer.Deserialize(_FileStream);
-
-            this.m_List = _Model;
-
-            _FileStream.Close();
-        }
-
-        public void PlayUnDo()
-        {
-            if (this.m_List.Count == 0)
-            {
-                return;
-            }
-
-            this.Turn = !this.Turn;
-            this.m_List.Remove(this.m_List.Last());
-        }
-
-        public void PlayTurn(Model model)
-        {
-            this.m_Stopwatch.Stop();
-
-            this.Turn = !this.Turn;
-            model.Elapsed = this.m_Stopwatch.Elapsed.ToString();
-            model.Index = this.Index;
-            this.m_List.Add(model);
-            this.m_Stopwatch.Restart();
-        }
-
-        public int Index
-        {
-            get
-            {
-                return this.List.Count() + 1;
-            }
-
-        }
-
-        public bool Turn { get; set; }
-
-        public Model[] List
-        {
-            get
-            {
-                return this.m_List.ToArray();
-            }
-        }
-    }
-
-    public class Model
-    {
-        [XmlAttribute]
-        public string Elapsed { get; set; }
-
-        [XmlAttribute]
-        public int Index { get; set; }
-
-        [XmlAttribute]
-        public int X { get; set; }
-
-        [XmlAttribute]
-        public int Y { get; set; }
-
-        [XmlAttribute]
-        public bool IsBlack { get; set; }
-
-        public override string ToString()
-        {
-            return string.Format("X:{0}, Y:{1}, color:{2}", this.X, this.Y, this.IsBlack);
         }
     }
 }
